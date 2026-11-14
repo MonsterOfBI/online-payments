@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Defs_Refund_TO_BE" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.0.0">
+  <bpmn:collaboration id="Collab_Refund_TO_BE">
+    <bpmn:participant id="Pool_Refund_TO_BE" name="«Ромашка-Маркет»: возврат" processRef="Refund_TO_BE" />
+  </bpmn:collaboration>
+  <bpmn:process id="Refund_TO_BE" name="Возврат денег за заказ (TO-BE)" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_Refund_TO_BE">
+      <bpmn:lane id="Lane_0" name="Покупатель">
+        <bpmn:flowNodeRef>s</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>e1</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_1" name="Поддержка">
+        <bpmn:flowNodeRef>o1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>g1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>o2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>e0</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_2" name="Бэкенд магазина">
+        <bpmn:flowNodeRef>b1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>b2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>b3</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_3" name="Платёжный сервис (ЮKassa)">
+        <bpmn:flowNodeRef>k1</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="s" name="Запросил возврат в личном кабинете">
+      <bpmn:outgoing>Flow_0</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="o1" name="Проверить условия возврата">
+      <bpmn:incoming>Flow_0</bpmn:incoming>
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="g1" name="Можно вернуть?">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sendTask id="o2" name="Объяснить отказ">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:endEvent id="e0" name="Возврат отклонён">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="b1" name="Создать возврат POST /refunds (ключ = id заявки)">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="k1" name="Провести возврат и чек возврата">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="b2" name="Принять webhook refund.succeeded">
+      <bpmn:incoming>Flow_6</bpmn:incoming>
+      <bpmn:outgoing>Flow_7</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sendTask id="b3" name="Уведомить покупателя">
+      <bpmn:incoming>Flow_7</bpmn:incoming>
+      <bpmn:outgoing>Flow_8</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:endEvent id="e1" name="Деньги возвращены">
+      <bpmn:incoming>Flow_8</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_0" name="" sourceRef="s" targetRef="o1" />
+    <bpmn:sequenceFlow id="Flow_1" name="" sourceRef="o1" targetRef="g1" />
+    <bpmn:sequenceFlow id="Flow_2" name="нет" sourceRef="g1" targetRef="o2" />
+    <bpmn:sequenceFlow id="Flow_3" name="да" sourceRef="g1" targetRef="b1" />
+    <bpmn:sequenceFlow id="Flow_4" name="" sourceRef="o2" targetRef="e0" />
+    <bpmn:sequenceFlow id="Flow_5" name="" sourceRef="b1" targetRef="k1" />
+    <bpmn:sequenceFlow id="Flow_6" name="" sourceRef="k1" targetRef="b2" />
+    <bpmn:sequenceFlow id="Flow_7" name="" sourceRef="b2" targetRef="b3" />
+    <bpmn:sequenceFlow id="Flow_8" name="" sourceRef="b3" targetRef="e1" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_Refund_TO_BE"><bpmndi:BPMNPlane id="Plane_Refund_TO_BE" bpmnElement="Collab_Refund_TO_BE">
+    <bpmndi:BPMNShape id="Pool_Refund_TO_BE_di" bpmnElement="Pool_Refund_TO_BE" isHorizontal="true"><dc:Bounds x="120" y="60" width="1580" height="660" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_0_di" bpmnElement="Lane_0" isHorizontal="true"><dc:Bounds x="150" y="60" width="1550" height="140" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_1_di" bpmnElement="Lane_1" isHorizontal="true"><dc:Bounds x="150" y="200" width="1550" height="240" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_2_di" bpmnElement="Lane_2" isHorizontal="true"><dc:Bounds x="150" y="440" width="1550" height="140" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_3_di" bpmnElement="Lane_3" isHorizontal="true"><dc:Bounds x="150" y="580" width="1550" height="140" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="s_di" bpmnElement="s"><dc:Bounds x="222.0" y="112.0" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="190" y="152.0" width="100" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="o1_di" bpmnElement="o1"><dc:Bounds x="345.0" y="230.0" width="110" height="80" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="g1_di" bpmnElement="g1" isMarkerVisible="true"><dc:Bounds x="535.0" y="245.0" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="510" y="213.0" width="100" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="o2_di" bpmnElement="o2"><dc:Bounds x="505.0" y="330.0" width="110" height="80" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="e0_di" bpmnElement="e0"><dc:Bounds x="702.0" y="352.0" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="670" y="392.0" width="100" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="b1_di" bpmnElement="b1"><dc:Bounds x="825.0" y="470.0" width="110" height="80" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="k1_di" bpmnElement="k1"><dc:Bounds x="985.0" y="610.0" width="110" height="80" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="b2_di" bpmnElement="b2"><dc:Bounds x="1145.0" y="470.0" width="110" height="80" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="b3_di" bpmnElement="b3"><dc:Bounds x="1305.0" y="470.0" width="110" height="80" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="e1_di" bpmnElement="e1"><dc:Bounds x="1502.0" y="112.0" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1470" y="152.0" width="100" height="27" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+    <bpmndi:BPMNEdge id="Flow_0_di" bpmnElement="Flow_0"><di:waypoint x="258" y="130" /><di:waypoint x="302" y="130" /><di:waypoint x="302" y="270" /><di:waypoint x="345" y="270" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1"><di:waypoint x="455" y="270" /><di:waypoint x="535" y="270" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2"><di:waypoint x="560" y="295" /><di:waypoint x="560" y="330" /><bpmndi:BPMNLabel><dc:Bounds x="566" y="299" width="70" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3"><di:waypoint x="585" y="270" /><di:waypoint x="880" y="270" /><di:waypoint x="880" y="470" /><bpmndi:BPMNLabel><dc:Bounds x="591" y="250" width="70" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4"><di:waypoint x="615" y="370" /><di:waypoint x="702" y="370" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5"><di:waypoint x="935" y="510" /><di:waypoint x="960" y="510" /><di:waypoint x="960" y="650" /><di:waypoint x="985" y="650" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_6_di" bpmnElement="Flow_6"><di:waypoint x="1095" y="650" /><di:waypoint x="1120" y="650" /><di:waypoint x="1120" y="510" /><di:waypoint x="1145" y="510" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_7_di" bpmnElement="Flow_7"><di:waypoint x="1255" y="510" /><di:waypoint x="1305" y="510" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_8_di" bpmnElement="Flow_8"><di:waypoint x="1415" y="510" /><di:waypoint x="1458" y="510" /><di:waypoint x="1458" y="130" /><di:waypoint x="1502" y="130" /></bpmndi:BPMNEdge>
+  </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>

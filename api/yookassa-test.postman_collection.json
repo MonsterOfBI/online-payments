@@ -1,0 +1,242 @@
+{
+ "info": {
+  "name": "ЮKassa — тестовый магазин (учебный кейс F2)",
+  "description": "Подставь shopId и secretKey тестового магазина в переменные коллекции. Тестовые карты: 2200000000000004 (успех с 3-DS), 5555555555554600 (недостаточно средств). Не проверено живым запросом из окружения автора.",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+ },
+ "auth": {
+  "type": "basic",
+  "basic": [
+   {
+    "key": "username",
+    "value": "{{shopId}}",
+    "type": "string"
+   },
+   {
+    "key": "password",
+    "value": "{{secretKey}}",
+    "type": "string"
+   }
+  ]
+ },
+ "variable": [
+  {
+   "key": "shopId",
+   "value": ""
+  },
+  {
+   "key": "secretKey",
+   "value": ""
+  },
+  {
+   "key": "idemKey",
+   "value": ""
+  },
+  {
+   "key": "paymentId",
+   "value": ""
+  }
+ ],
+ "item": [
+  {
+   "name": "1. Создать платёж (карта, редирект)",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Idempotence-Key",
+      "value": "{{idemKey}}"
+     }
+    ],
+    "url": {
+     "raw": "https://api.yookassa.ru/v3/payments",
+     "protocol": "https",
+     "host": [
+      "api",
+      "yookassa",
+      "ru"
+     ],
+     "path": [
+      "v3",
+      "payments"
+     ]
+    },
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"amount\": {\n    \"value\": \"3480.00\",\n    \"currency\": \"RUB\"\n  },\n  \"capture\": true,\n  \"confirmation\": {\n    \"type\": \"redirect\",\n    \"return_url\": \"https://example.com/return\"\n  },\n  \"description\": \"Заказ №1042\"\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "prerequest",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "// Один ключ на попытку. Чтобы проверить идемпотентность, отправь запрос дважды, не меняя ключ.",
+       "if (!pm.collectionVariables.get(\"idemKey\")) pm.collectionVariables.set(\"idemKey\", \"1042-\" + Date.now());"
+      ]
+     }
+    },
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test(\"201/200 и статус pending\", () => {",
+       "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+       "  pm.expect(pm.response.json().status).to.eql(\"pending\");",
+       "});",
+       "pm.collectionVariables.set(\"paymentId\", pm.response.json().id);"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "2. Повтор того же запроса (тот же ключ)",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Idempotence-Key",
+      "value": "{{idemKey}}"
+     }
+    ],
+    "url": {
+     "raw": "https://api.yookassa.ru/v3/payments",
+     "protocol": "https",
+     "host": [
+      "api",
+      "yookassa",
+      "ru"
+     ],
+     "path": [
+      "v3",
+      "payments"
+     ]
+    },
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"amount\": {\n    \"value\": \"3480.00\",\n    \"currency\": \"RUB\"\n  },\n  \"capture\": true,\n  \"confirmation\": {\n    \"type\": \"redirect\",\n    \"return_url\": \"https://example.com/return\"\n  },\n  \"description\": \"Заказ №1042\"\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test(\"Вернулся тот же платёж\", () => {",
+       "  pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get(\"paymentId\"));",
+       "});"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "3. Статус платежа",
+   "request": {
+    "method": "GET",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     }
+    ],
+    "url": {
+     "raw": "https://api.yookassa.ru/v3/payments/{{paymentId}}",
+     "protocol": "https",
+     "host": [
+      "api",
+      "yookassa",
+      "ru"
+     ],
+     "path": [
+      "v3",
+      "payments",
+      "{{paymentId}}"
+     ]
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test(\"200\", () => pm.response.to.have.status(200));",
+       "pm.test(\"Статус из модели\", () => {",
+       "  pm.expect(pm.response.json().status).to.be.oneOf([\"pending\",\"waiting_for_capture\",\"succeeded\",\"canceled\"]);",
+       "});"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "4. Возврат части суммы",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Idempotence-Key",
+      "value": "{{idemKey}}"
+     }
+    ],
+    "url": {
+     "raw": "https://api.yookassa.ru/v3/refunds",
+     "protocol": "https",
+     "host": [
+      "api",
+      "yookassa",
+      "ru"
+     ],
+     "path": [
+      "v3",
+      "refunds"
+     ]
+    },
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"payment_id\": \"{{paymentId}}\",\n  \"amount\": {\n    \"value\": \"1000.00\",\n    \"currency\": \"RUB\"\n  }\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "prerequest",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.collectionVariables.set(\"idemKey\", \"refund-\" + Date.now());"
+      ]
+     }
+    },
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test(\"Возврат создан\", () => {",
+       "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+       "  pm.expect(pm.response.json().status).to.be.oneOf([\"pending\",\"succeeded\"]);",
+       "});"
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,157 @@
+openapi: 3.0.3
+info:
+  title: Romashka-Market Payments API (учебный)
+  version: 1.0.0
+  description: |
+    API бэкенда интернет-магазина для оплаты заказов и возвратов. Учебный проект: сервиса нет,
+    спецификация — это требования к бэкенду. Внешний провайдер — ЮKassa (его API описан в его документации).
+servers:
+  - url: https://shop.example.local/api/v1
+paths:
+  /orders/{order_id}/payments:
+    post:
+      summary: Создать попытку оплаты заказа
+      description: |
+        Повтор с тем же Idempotency-Key возвращает тот же платёж (защита от двойного нажатия).
+        Новую попытку можно создать только если предыдущая в статусе canceled.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, example: "1042-1" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [method]
+              properties:
+                method: { type: string, enum: [bank_card, sbp, yoo_money, digital_rub] }
+                return_url: { type: string, format: uri }
+      responses:
+        '201':
+          description: Платёж создан
+          content: { application/json: { schema: { $ref: '#/components/schemas/Payment' } } }
+        '200':
+          description: Повтор с тем же ключом — возвращён существующий платёж
+          content: { application/json: { schema: { $ref: '#/components/schemas/Payment' } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409':
+          description: Заказ уже оплачен или есть активная попытка с другим ключом
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '422':
+          description: Способ недоступен для суммы или устройства
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '502':
+          description: Платёжный сервис недоступен — повторить с тем же ключом
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+  /payments/{payment_id}:
+    get:
+      summary: Статус платежа (для страницы ожидания)
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: Платёж
+          content: { application/json: { schema: { $ref: '#/components/schemas/Payment' } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /payments/{payment_id}/refunds:
+    post:
+      summary: Создать возврат (полный или частичный) — для админки поддержки
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, example: "refund-5531" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, reason]
+              properties:
+                amount: { type: number, format: decimal, minimum: 0.01, example: 1500.00 }
+                reason: { type: string, example: "Товар не подошёл" }
+      responses:
+        '201':
+          description: Возврат создан
+          content: { application/json: { schema: { $ref: '#/components/schemas/Refund' } } }
+        '200':
+          description: Повтор с тем же ключом
+          content: { application/json: { schema: { $ref: '#/components/schemas/Refund' } } }
+        '409':
+          description: Платёж не в статусе succeeded
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '422':
+          description: Сумма больше доступной к возврату (REFUND_AMOUNT_EXCEEDED)
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+  /webhooks/payment-provider:
+    post:
+      summary: Приём уведомлений от платёжного сервиса
+      description: |
+        Отвечает 200 за ≤ 3 с. Статус заказа меняет только после перепроверки GET-запросом к провайдеру.
+        Повторная доставка того же события не меняет данные.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event, object]
+              properties:
+                type: { type: string, example: notification }
+                event: { type: string, enum: [payment.succeeded, payment.canceled, payment.waiting_for_capture, refund.succeeded] }
+                object:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    status: { type: string }
+      responses:
+        '200': { description: Принято (в том числе повтор) }
+        '400': { $ref: '#/components/responses/Error' }
+components:
+  parameters:
+    OrderId:
+      name: order_id
+      in: path
+      required: true
+      schema: { type: integer }
+    PaymentId:
+      name: payment_id
+      in: path
+      required: true
+      schema: { type: string }
+  responses:
+    Error:
+      description: Ошибка
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+  schemas:
+    Payment:
+      type: object
+      required: [payment_id, order_id, method, amount, status]
+      properties:
+        payment_id: { type: string, example: "2e9c1f4a-000f-5000-8000-1a2b3c4d5e6f" }
+        order_id: { type: integer, example: 1042 }
+        method: { type: string, enum: [bank_card, sbp, yoo_money, digital_rub] }
+        amount: { type: number, format: decimal, example: 3480.00 }
+        status: { type: string, enum: [pending, waiting_for_capture, succeeded, canceled] }
+        confirmation_url: { type: string, format: uri, nullable: true, description: Куда отправить покупателя (форма / банк) }
+        cancel_reason: { type: string, nullable: true, example: insufficient_funds }
+        customer_message: { type: string, nullable: true, example: "Недостаточно средств. Попробуйте другую карту или СБП" }
+    Refund:
+      type: object
+      properties:
+        refund_id: { type: string }
+        payment_id: { type: string }
+        amount: { type: number, format: decimal }
+        status: { type: string, enum: [pending, succeeded, canceled] }
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, example: REFUND_AMOUNT_EXCEEDED }
+        message: { type: string, example: "Доступно к возврату 2088.00 ₽" }

@@ -1,0 +1,31 @@
+@startuml
+title Оплата заказа: бэкенд магазина ↔ ЮKassa
+actor "Покупатель" as U
+participant "Сайт" as F
+participant "Бэкенд магазина" as B
+participant "ЮKassa" as K
+participant "Банк покупателя" as Bank
+U -> F : Оплатить
+F -> B : POST /orders/{id}/payments
+B -> K : POST /v3/payments (Idempotence-Key)
+alt таймаут 10 с
+  B -> K : повтор с тем же ключом (до 3 раз)
+end
+K --> B : 200 pending, confirmation_url
+B --> F : 201 payment
+F -> U : форма карты / QR СБП
+U -> Bank : подтвердить (3-DS / приложение)
+Bank --> K : результат
+K -> B : webhook payment.succeeded | canceled
+B -> K : GET /v3/payments/{id}
+K --> B : статус
+alt succeeded
+  B -> B : заказ paid (повтор — без изменений)
+else canceled
+  B -> B : причина → текст покупателю
+end
+B --> K : 200 OK
+opt webhook не пришёл за 10 минут
+  B -> K : GET /v3/payments/{id}
+end
+@enduml
